@@ -3,6 +3,7 @@ from django.http import HttpResponseBadRequest, HttpResponse
 from django.shortcuts import render, redirect
 from django.urls import reverse
 from django.views import View
+from django.contrib.auth import login
 
 # Create your views here.
 from apps.user.models import User
@@ -31,6 +32,15 @@ class RegisterView(View):
         except DatabaseError:
             return HttpResponseBadRequest('注册失败')
 
-        # return redirect(reverse())
-        # return redirect('/')
-        return HttpResponse('注册成功，重定向到首页')
+        # 实现状态保持
+        login(request, user)
+
+        # 跳转到首页
+        response = redirect(reverse('home:index'))
+        # 设置cookie
+        # 登录状态，会话结束后自动过期
+        response.set_cookie('is_login', True)
+        # 设置用户名有效期一个月
+        response.set_cookie('username', user.username, max_age=30 * 24 * 3600)
+
+        return response
