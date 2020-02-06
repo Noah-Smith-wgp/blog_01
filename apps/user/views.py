@@ -1,3 +1,5 @@
+import logging
+
 from django.db import DatabaseError
 from django.http import HttpResponseBadRequest, HttpResponse
 from django.shortcuts import render, redirect
@@ -7,6 +9,8 @@ from django.contrib.auth import login, authenticate
 
 # Create your views here.
 from apps.user.models import User
+
+logger = logging.getLogger('django')
 
 
 class RegisterView(View):
@@ -68,4 +72,44 @@ class LoginView(View):
         response.set_cookie('is_login', True)
         response.set_cookie('username', user.username, max_age=30 * 24 * 3600)
 
+        return response
+
+
+class UserCenterView(View):
+
+    def get(self, request):
+        # 获取用户信息
+        user = request.user
+
+        # 组织模板渲染数据
+        context = {
+            'username': user.username,
+            'mobile': user.mobile,
+            'avatar': user.avatar.url if user.avatar else None,
+            'user_desc': user.user_desc
+        }
+        return render(request, 'center.html', context=context)
+
+    def post(self, request):
+        # 接收数据
+        user = request.user
+        avatar = request.FILES.get('avatar')
+        username = request.POST.get('username', user.username)
+        user_desc = request.POST.get('desc', user.user_desc)
+
+        # 修改数据库数据
+        try:
+            user.username = username
+            user.user_desc = user_desc
+            if avatar:
+                user.avatar = avatar
+            user.save()
+        except Exception as e:
+            logger.error(e)
+            return HttpResponseBadRequest('更新失败，请稍后再试')
+
+        # 返回响应，刷新页面
+        response = redirect(reverse('users:center'))
+        # 更新cookie信息
+        response.set_cookie('username', user.username, max_age=30 * 24 * 3600)
         return response
